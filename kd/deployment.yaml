@@ -125,16 +125,16 @@ spec:
               value: /certs/tls-key.pem
             - name: ADD_NGINX_SERVER_CFG
               value: 'gzip off; location = /reload { allow 127.0.0.1; deny all; content_by_lua_block { os.execute("touch /tmp/nginx-reload-triggered; /usr/local/openresty/nginx/sbin/nginx -s reload; touch /tmp/nginx-reload-complete;") } }'
-        volumeMounts:
-          - name: certs
-            mountPath: /certs
-            readOnly: true
-          - name: secrets
-            mountPath: /etc/nginx/secrets
-            readOnly: true
-        ports:
-          - name: https
-            containerPort: 10443
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+            - name: secrets
+              mountPath: /etc/nginx/secrets
+              readOnly: true
+          ports:
+            - name: https
+              containerPort: 10443
 
         - name: pttg-feedback
           image: quay.io/ukhomeofficedigital/pttg-feedback:{{.VERSION}}
@@ -156,7 +156,36 @@ spec:
             value: 'false'
           - name: SPRING_PROFILES_ACTIVE
             value: 'postgres'
-          
+          - name: PTTG_DB_HOSTNAME
+            valueFrom:
+              secretKeyRef:
+                name: pttg-rds-access
+                key: endpoint
+          - name: PTTG_DB_PORT
+            valueFrom:
+              secretKeyRef:
+                name: pttg-rds-access
+                key: port
+          - name: PTTG_DB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: pttg-rds-access
+                key: database
+          - name: IP_SCHEMA_NAME
+            valueFrom:
+              secretKeyRef:
+                name: db-secrets
+                key: schema_name
+          - name: IP_DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: db-secrets
+                key: application_username
+          - name: IP_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: db-secrets
+                key: application_password
           resources:
             limits:
               cpu: 1600m
