@@ -24,9 +24,8 @@ spec:
       imagePullSecrets:
         - name: registrykey
       initContainers:
-        
-        - name: get-ca-certs
-          image: quay.io/ukhomeofficedigital/cfssl-sidekick:v0.1.0
+        - name: truststore
+          image: quay.io/ukhomeofficedigital/cfssl-sidekick-jks:v0.0.6
           securityContext:
             runAsNonRoot: true
             capabilities:
@@ -35,40 +34,26 @@ spec:
                 - SETGID
           args:
             - --certs=/certs
+            - --command=/usr/bin/create-keystore.sh /certs/tls.pem /certs/tls-key.pem /etc/ssl/certs/acp-root.crt
             - --domain=pttg-feedback.${KUBE_NAMESPACE}.svc.cluster.local
+            - --domain=localhost
             - --onetime=true
           env:
-            - name: KUBE_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+          - name: KUBE_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           volumeMounts:
-            - name: certs
-              mountPath: /certs
-            - name: bundle
-              mountPath: /etc/ssl/certs
-              readOnly: true
-        
-        - name: create-truststore
-          image: quay.io/ukhomeofficedigital/pttg-docker-openjdk8:latest
-          securityContext:
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - SETUID
-                - SETGID
-          volumeMounts:
-            - name: store
-              mountPath: /store
-            - name: bundle
-              mountPath: /etc/ssl/certs
-              readOnly: true
-          command: ["/bin/sh"]
-          args: ["-c", "keytool -import -alias servercert -file /etc/ssl/certs/ca-bundle.crt -keystore /store/truststore.jks -noprompt -storepass changeit"]
-      
+          - name: certs
+            mountPath: /certs
+          - name: keystore
+            mountPath: /etc/keystore
+          - name: bundle
+            mountPath: /etc/ssl/certs
+            readOnly: true
       containers:
         - name: certs
-          image: quay.io/ukhomeofficedigital/cfssl-sidekick:v0.1.0
+          image: quay.io/ukhomeofficedigital/cfssl-sidekick:v0.0.6
           securityContext:
             runAsNonRoot: true
             capabilities:
@@ -91,7 +76,6 @@ spec:
             - name: bundle
               mountPath: /etc/ssl/certs
               readOnly: true
-
         - name: proxy
           image: quay.io/ukhomeofficedigital/nginx-proxy:v3.2.8
           imagePullPolicy: Always
@@ -135,7 +119,6 @@ spec:
           ports:
             - name: https
               containerPort: 10443
-
         - name: pttg-feedback
           image: quay.io/ukhomeofficedigital/pttg-feedback:{{.VERSION}}
           imagePullPolicy: Always
@@ -147,9 +130,9 @@ spec:
                 - SETGID
           env:
           - name: JAVA_OPTS
-            value: '-Xms150m -Xmx250m'
+            value: '-Xms150m -Xmx250m -Djavax.net.ssl.trustStore=/etc/keystore/truststore.jks'
           - name: JDK_TRUST_FILE
-            value: '/store/truststore.jks'
+            value: '/etc/keystore/truststore.jks'
           - name: SERVER_PORT
             value: '8080'
           - name: ENDPOINTS_INFO_ENABLED
@@ -217,12 +200,12 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 10
           volumeMounts:
-            - mountPath: /store
-              name: store
+            - mountPath: /etc/keystore
+              name: keystore
               readOnly: true
 
       volumes:
-        - name: store
+        - name: keystore
           emptyDir:
             medium: "Memory"
         - name: certs
