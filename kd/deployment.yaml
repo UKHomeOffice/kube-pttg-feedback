@@ -68,7 +68,7 @@ spec:
       
       containers:
         - name: certs
-          image: qquay.io/ukhomeofficedigital/cfssl-sidekick:v0.1.0
+          image: quay.io/ukhomeofficedigital/cfssl-sidekick:v0.1.0
           securityContext:
             runAsNonRoot: true
             capabilities:
